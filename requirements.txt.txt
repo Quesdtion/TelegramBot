@@ -1,5 +1,0 @@
-aiogram
-gspread
-google-auth
-python-dotenv
-README
