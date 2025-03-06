@@ -32,7 +32,15 @@ try:
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+
+    # Проверяем, можем ли открыть таблицу
+    try:
+        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+        logging.info("Таблица успешно открыта!")
+    except Exception as e:
+        logging.error(f"Не удалось открыть таблицу: {e}")
+        raise
+
     logging.info("✅ Подключение к Google Sheets успешно!")
 except Exception as e:
     logging.error(f"Ошибка при подключении к Google Sheets: {e}")
@@ -67,12 +75,16 @@ async def handle_message(message: Message):
         logging.info(f"Записываю данные в таблицу: {row}")
         
         try:
-            sheet.append_row(row)
-            logging.info(f"Данные успешно записаны: {row}")
+            # Попробуем записать данные в таблицу
+            result = sheet.append_row(row)
+            logging.info(f"Данные успешно записаны: {result}")
         except Exception as e:
+            # Логируем ошибку записи
             logging.error(f"Ошибка при записи в таблицу: {e}")
-
-        await message.reply("Отчёт записан ✅")
+            await message.reply(f"Ошибка при записи данных: {e}")
+        else:
+            # Отправляем успешный ответ
+            await message.reply("Отчёт записан ✅")
     else:
         await message.reply("Ошибка в формате отчёта ❌")
 
