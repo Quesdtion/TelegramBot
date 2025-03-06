@@ -8,7 +8,13 @@ from aiogram.types import Message
 from oauth2client.service_account import ServiceAccountCredentials
 
 # Получаем токен бота из переменных окружения
+import os
+
 TOKEN = os.getenv("BOT_TOKEN")
+print(f"TOKEN: '{TOKEN}'")  # Выведет токен в логи Railway
+
+if not TOKEN or " " in TOKEN:
+    raise ValueError("Ошибка: Токен пустой или содержит пробелы!")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 CREDENTIALS_JSON = os.getenv("CREDENTIALS_JSON")
 CREDENTIALS_PATH = "credentials.json"
