@@ -41,7 +41,11 @@ sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+from aiogram import Bot, Dispatcher
+
+bot = Bot(token=TOKEN)  # Создаём бота
+dp = Dispatcher()  # Создаём диспетчер
+
 
 # Функция для обработки отчётов
 @dp.message_handler()
