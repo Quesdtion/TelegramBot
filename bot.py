@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Подключаем Telegram-бота
 TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=TOKEN)
+print(f"Токен: {TOKEN}")bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 # Обработчик сообщений с отчётами
