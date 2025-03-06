@@ -7,33 +7,33 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import Message
 from oauth2client.service_account import ServiceAccountCredentials
 
-# РџРѕР»СѓС‡Р°РµРј С‚РѕРєРµРЅ Р±РѕС‚Р° РёР· РїРµСЂРµРјРµРЅРЅС‹С… РѕРєСЂСѓР¶РµРЅРёСЏ
+# Получаем токен бота из переменных окружения
 TOKEN = os.getenv("BOT_TOKEN")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 CREDENTIALS_JSON = os.getenv("CREDENTIALS_JSON")
 CREDENTIALS_PATH = "credentials.json"
 
 if not TOKEN or not SPREADSHEET_ID or not CREDENTIALS_JSON:
-    raise ValueError("РћС‚СЃСѓС‚СЃС‚РІСѓСЋС‚ РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ BOT_TOKEN, SPREADSHEET_ID РёР»Рё CREDENTIALS_JSON")
+    raise ValueError("Отсутствуют переменные окружения BOT_TOKEN, SPREADSHEET_ID или CREDENTIALS_JSON")
 
-# РЎРѕР·РґР°С‘Рј credentials.json РёР· РїРµСЂРµРјРµРЅРЅРѕР№ РѕРєСЂСѓР¶РµРЅРёСЏ
+# Создаём credentials.json из переменной окружения
 with open(CREDENTIALS_PATH, "w") as creds_file:
     creds_file.write(CREDENTIALS_JSON)
 
-# РџРѕРґРєР»СЋС‡Р°РµРј Google Sheets API
+# Подключаем Google Sheets API
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_PATH, scope)
 client = gspread.authorize(creds)
 
-# РћС‚РєСЂС‹РІР°РµРј С‚Р°Р±Р»РёС†Сѓ
+# Открываем таблицу
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-# РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
+# Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-# Р¤СѓРЅРєС†РёСЏ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё РѕС‚С‡С‘С‚РѕРІ
+# Функция для обработки отчётов
 @dp.message_handler()
 async def handle_message(message: Message):
     text = message.text
@@ -46,16 +46,16 @@ async def handle_message(message: Message):
             key, value = parts[0].strip(), parts[1].strip()
             report_data[key] = value
 
-    if "РђРєС‚РёРІ" in report_data:
-        row = [message.from_user.full_name, report_data.get("РђРєС‚РёРІ", ""), report_data.get("РќРѕРІС‹С… РЅРѕРјРµСЂРѕРІ", "")]
+    if "Актив" in report_data:
+        row = [message.from_user.full_name, report_data.get("Актив", ""), report_data.get("Новых номеров", "")]
         sheet.append_row(row)
-        await message.reply("РћС‚С‡С‘С‚ Р·Р°РїРёСЃР°РЅ вњ…")
+        await message.reply("Отчёт записан ?")
     else:
-        await message.reply("РћС€РёР±РєР° РІ С„РѕСЂРјР°С‚Рµ РѕС‚С‡С‘С‚Р° вќЊ")
+        await message.reply("Ошибка в формате отчёта ?")
 
-# Р—Р°РїСѓСЃРє Р±РѕС‚Р°
+# Запуск бота
 async def main():
     await dp.start_polling()
 
-if name == "main":
+if __name__ == "__main__":
     asyncio.run(main())
