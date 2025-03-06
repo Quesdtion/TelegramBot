@@ -4,7 +4,6 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 from aiogram.filters import Command
-from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 import gspread
 
