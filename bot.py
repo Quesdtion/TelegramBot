@@ -1,67 +1,45 @@
 import asyncio
 import os
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 from aiogram.filters import Command
+from googleapiclient.discovery import build
+from google.oauth2.service_account import Credentials
+import gspread
 
 TOKEN = os.getenv("BOT_TOKEN", "").strip()
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+CREDENTIALS_JSON = os.getenv("CREDENTIALS_JSON")
+
+# Проверка наличия необходимых переменных окружения
+if not TOKEN or not SPREADSHEET_ID or not CREDENTIALS_JSON:
+    raise ValueError("Отсутствуют переменные окружения BOT_TOKEN, SPREADSHEET_ID или CREDENTIALS_JSON")
+
+# Создаём файл с учётными данными
+with open("credentials.json", "w") as creds_file:
+    creds_file.write(CREDENTIALS_JSON)
+
+# Авторизация с использованием Google Sheets API
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+client = gspread.authorize(creds)
+sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 # Создаём объекты бота и диспетчера
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 
 # Обработчик команды /start
 @dp.message(Command("start"))
 async def start_handler(message: Message):
     await message.answer("Привет! Бот работает!")
 
-async def main():
-    # Запускаем поллинг, передавая бота в Dispatcher
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())  # Запускаем бота
-
-
-TOKEN = os.getenv("BOT_TOKEN", "").strip()  # Удаляет пробелы и переносы строк
-print(f"TOKEN: '{TOKEN}'")  # Проверяем снова
-
-if not TOKEN or " " in TOKEN:
-    raise ValueError("Ошибка: Токен пустой или содержит пробелы!")
-print(f"TOKEN: '{TOKEN}'")  # Выведет токен в логи Railway
-
-if not TOKEN or " " in TOKEN:
-    raise ValueError("Ошибка: Токен пустой или содержит пробелы!")
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
-CREDENTIALS_JSON = os.getenv("CREDENTIALS_JSON")
-CREDENTIALS_PATH = "credentials.json"
-
-if not TOKEN or not SPREADSHEET_ID or not CREDENTIALS_JSON:
-    raise ValueError("Отсутствуют переменные окружения BOT_TOKEN, SPREADSHEET_ID или CREDENTIALS_JSON")
-
-# Создаём credentials.json из переменной окружения
-with open(CREDENTIALS_PATH, "w") as creds_file:
-    creds_file.write(CREDENTIALS_JSON)
-
-# Подключаем Google Sheets API
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_PATH, scope)
-client = gspread.authorize(creds)
-
-# Открываем таблицу
-sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-
-# Настраиваем логирование
-logging.basicConfig(level=logging.INFO)
-bot = Bot(token=TOKEN)
-from aiogram import Bot, Dispatcher
-
-bot = Bot(token=TOKEN)  # Создаём бота
-dp = Dispatcher()  # Создаём диспетчер
-
-
-# Функция для обработки отчётов
-@dp.message_handler()
+# Обработчик отчётов
+@dp.message()
 async def handle_message(message: Message):
     text = message.text
     lines = text.split("\n")
@@ -84,5 +62,6 @@ async def handle_message(message: Message):
 async def main():
     await dp.start_polling()
 
-if __name__ == "__main__":
+if name == "__main__":
     asyncio.run(main())
+    
