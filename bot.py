@@ -12,7 +12,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 TOKEN = os.getenv("BOT_TOKEN", "7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI").strip()
 
 # Подключаем Google Sheets API
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 import json
 from google.oauth2.service_account import Credentials
 
