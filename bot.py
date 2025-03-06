@@ -7,32 +7,45 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import Message
 from google.oauth2.service_account import Credentials
 
-# Читаем JSON-ключ из переменной окружения
-credentials_json = os.getenv("CREDENTIALS_JSON")
-
-if not credentials_json:
-    raise ValueError("Отсутствует CREDENTIALS_JSON в переменных окружения")
-
-# Преобразуем строку JSON в словарь
-credentials_dict = json.loads(credentials_json)
-
-# Подключаем Google Sheets API
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
-client = gspread.authorize(creds)
-
-# Открываем таблицу
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
-sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
 
+# Загружаем переменные окружения
+TOKEN = os.getenv("BOT_TOKEN", "").strip()
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "").strip()
+credentials_json = os.getenv("CREDENTIALS_JSON", "").strip()
+
+# Проверяем, загружены ли переменные
+if not TOKEN:
+    raise ValueError("Ошибка: отсутствует BOT_TOKEN в переменных окружения!")
+if not SPREADSHEET_ID:
+    raise ValueError("Ошибка: отсутствует SPREADSHEET_ID в переменных окружения!")
+if not credentials_json:
+    raise ValueError("Ошибка: отсутствует CREDENTIALS_JSON в переменных окружения!")
+
+logging.info(f"✅ Токен загружен: {repr(TOKEN)}")
+logging.info(f"✅ ID таблицы загружен: {SPREADSHEET_ID}")
+
+# Подключаемся к Google Sheets API
+try:
+    credentials_dict = json.loads(credentials_json)
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
+    client = gspread.authorize(creds)
+    sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+    logging.info("✅ Подключение к Google Sheets успешно!")
+except Exception as e:
+    logging.error(f"Ошибка при подключении к Google Sheets: {e}")
+    raise
+
 # Подключаем Telegram-бота
-TOKEN = os.getenv("BOT_TOKEN")
-print(f"Токен: {TOKEN}")
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+try:
+    bot = Bot(token=TOKEN)
+    dp = Dispatcher()
+    logging.info("✅ Бот успешно запущен!")
+except Exception as e:
+    logging.error(f"Ошибка при запуске бота: {e}")
+    raise
 
 # Обработчик сообщений с отчётами
 @dp.message()
