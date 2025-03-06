@@ -9,7 +9,7 @@ from aiogram.filters import Command
 from oauth2client.service_account import ServiceAccountCredentials
 
 # Получаем токен из переменных окружения (или вставьте ваш токен напрямую)
-TOKEN = os.getenv("BOT_TOKEN", "ВАШ_BOT_TOKEN").strip()
+TOKEN = os.getenv("BOT_TOKEN", "7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI").strip()
 
 # Подключаем Google Sheets API
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -17,7 +17,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", sco
 client = gspread.authorize(creds)
 
 # Открываем таблицу по ID
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "ВАШ_ID_ТАБЛИЦЫ")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "1RPTlWv1kONwcfLtnZ9y4iCofLvy7jF9nL-3VPIkwWAI")
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 # Настроим логирование
