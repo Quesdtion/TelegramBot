@@ -1,14 +1,27 @@
-import logging
-import json
-import gspread
 import asyncio
 import os
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher
 from aiogram.types import Message
-from oauth2client.service_account import ServiceAccountCredentials
+from aiogram.filters import Command
 
-# Получаем токен бота из переменных окружения
-import os
+TOKEN = os.getenv("BOT_TOKEN", "").strip()
+
+# Создаём объекты бота и диспетчера
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+
+# Обработчик команды /start
+@dp.message(Command("start"))
+async def start_handler(message: Message):
+    await message.answer("Привет! Бот работает!")
+
+async def main():
+    # Запускаем поллинг, передавая бота в Dispatcher
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())  # Запускаем бота
+
 
 TOKEN = os.getenv("BOT_TOKEN", "").strip()  # Удаляет пробелы и переносы строк
 print(f"TOKEN: '{TOKEN}'")  # Проверяем снова
