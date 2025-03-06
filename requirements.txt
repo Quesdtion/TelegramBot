@@ -3,3 +3,4 @@ gspread
 google-auth
 python-dotenv
 python-telegram-bot
+oauth2client
