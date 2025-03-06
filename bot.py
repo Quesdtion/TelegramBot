@@ -10,7 +10,11 @@ from oauth2client.service_account import ServiceAccountCredentials
 # Получаем токен бота из переменных окружения
 import os
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN", "").strip()  # Удаляет пробелы и переносы строк
+print(f"TOKEN: '{TOKEN}'")  # Проверяем снова
+
+if not TOKEN or " " in TOKEN:
+    raise ValueError("Ошибка: Токен пустой или содержит пробелы!")
 print(f"TOKEN: '{TOKEN}'")  # Выведет токен в логи Railway
 
 if not TOKEN or " " in TOKEN:
