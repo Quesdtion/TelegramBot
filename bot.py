@@ -62,7 +62,16 @@ async def handle_message(message: Message):
 
     if "Актив" in report_data:
         row = [message.from_user.full_name, report_data.get("Актив", ""), report_data.get("Новых номеров", "")]
-        sheet.append_row(row)
+        
+        # Логируем данные перед записью
+        logging.info(f"Записываю данные в таблицу: {row}")
+        
+        try:
+            sheet.append_row(row)
+            logging.info(f"Данные успешно записаны: {row}")
+        except Exception as e:
+            logging.error(f"Ошибка при записи в таблицу: {e}")
+
         await message.reply("Отчёт записан ✅")
     else:
         await message.reply("Ошибка в формате отчёта ❌")
@@ -73,3 +82,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
