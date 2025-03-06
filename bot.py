@@ -13,7 +13,17 @@ TOKEN = os.getenv("BOT_TOKEN", "7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI")
 
 # Подключаем Google Sheets API
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+import json
+from google.oauth2.service_account import Credentials
+
+CREDENTIALS_JSON = os.getenv("CREDENTIALS_JSON")
+
+if not CREDENTIALS_JSON:
+    raise ValueError("Отсутствует переменная окружения CREDENTIALS_JSON")
+
+creds_info = json.loads(CREDENTIALS_JSON)
+creds = Credentials.from_service_account_info(creds_info)
+client = gspread.authorize(creds)
 client = gspread.authorize(creds)
 
 # Открываем таблицу по ID
