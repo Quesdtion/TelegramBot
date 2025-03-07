@@ -2,48 +2,47 @@ import os
 import json
 import gspread
 import logging
+import sys
 import asyncio
-from aiogram import Bot, Dispatcher, types
+import io
+import matplotlib.pyplot as plt
+from aiogram import Bot, Dispatcher, Router, types
+from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import matplotlib.pyplot as plt
-import io
 
-# Настраиваем логирование
-logging.basicConfig(level=logging.INFO)
+# Настраиваем логирование для Railway
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 # Загружаем переменные окружения
 TOKEN = os.getenv("BOT_TOKEN", "").strip()
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "").strip()
-credentials_json = os.getenv("CREDENTIALS_JSON", "").strip()
+CREDENTIALS_JSON = os.getenv("CREDENTIALS_JSON", "").strip()
 
 # Проверяем, загружены ли переменные
-if not TOKEN or not SPREADSHEET_ID or not credentials_json:
-    raise ValueError("Ошибка: отсутствуют необходимые переменные окружения!")
+if not TOKEN or not SPREADSHEET_ID or not CREDENTIALS_JSON:
+    raise ValueError("❌ Ошибка: отсутствуют необходимые переменные окружения!")
 
 logging.info("✅ Переменные окружения загружены")
 
-# Подключаемся к Google Sheets API
+# Подключение к Google Sheets
 try:
-    credentials_dict = json.loads(credentials_json)
+    credentials_dict = json.loads(CREDENTIALS_JSON)
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
     client = gspread.authorize(creds)
     sheet = client.open_by_key(SPREADSHEET_ID)
     logging.info("✅ Подключение к Google Sheets успешно!")
 except Exception as e:
-    logging.error(f"Ошибка при подключении к Google Sheets: {e}")
+    logging.error(f"❌ Ошибка при подключении к Google Sheets: {e}")
     raise
 
-# Подключаем Telegram-бота
-try:
-    bot = Bot(token=TOKEN)
-    dp = Dispatcher(bot)
-    logging.info("✅ Бот успешно запущен!")
-except Exception as e:
-    logging.error(f"Ошибка при запуске бота: {e}")
-    raise
+# Инициализация бота и диспетчера
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+router = Router()
+dp.include_router(router)
 
 # Словари пользователей и категорий
 user_to_row = {'question': 2}  # Пример
@@ -56,11 +55,18 @@ def create_keyboard():
     keyboard.add(KeyboardButton("Просмотр статистики"))
     return keyboard
 
-# Напоминания
+# Планировщик задач (напоминание)
 scheduler = AsyncIOScheduler()
+
 async def send_reminder():
-    await bot.send_message(chat_id=123456789, text="Не забывайте отправить отчет! 📝")  # Укажите свой chat_id
+    chat_id = 123456789  # Укажи свой chat_id
+    await bot.send_message(chat_id=chat_id, text="🔔 Не забывайте отправить отчет!")
+
 scheduler.add_job(send_reminder, 'cron', hour=18, minute=30, day_of_week='mon-fri')
+
+async def start_scheduler():
+    if not scheduler.running:
+        scheduler.start()
 
 # Генерация графика
 def generate_report_chart(data):
@@ -70,55 +76,51 @@ def generate_report_chart(data):
     ax.bar(categories, values)
     ax.set_xlabel("Категории")
     ax.set_ylabel("Значения")
-    ax.set_title("Статистика по отчетам")
+    ax.set_title("📊 Статистика по отчетам")
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
     return buf
 
 # Обработчики команд
-@dp.message_handler(commands=['start'])
+@router.message(Command("start"))
 async def cmd_start(message: Message):
-    await message.answer("Добро пожаловать! Используйте кнопки ниже.", reply_markup=create_keyboard())
+    await message.answer("👋 Добро пожаловать! Используйте кнопки ниже.", reply_markup=create_keyboard())
 
-@dp.message_handler(lambda message: message.text == "Отправить отчет")
+@router.message(lambda message: message.text == "Отправить отчет")
 async def handle_report(message: Message):
-    await message.answer("Отправьте отчет в формате: \nНОМЕРА: 10\nПЕРЕВОДЫ: 5")
+    await message.answer("📄 Отправьте отчет в формате:\n\nНОМЕРА: 10\nПЕРЕВОДЫ: 5")
 
-@dp.message_handler(lambda message: message.text == "Просмотр статистики")
+@router.message(lambda message: message.text == "Просмотр статистики")
 async def show_statistics(message: Message):
     user_name = message.from_user.username
-    
+
     if user_name not in user_to_row:
-        await message.reply("Ошибка: Вы не настроены для записи отчёта ❌")
+        await message.reply("❌ Ошибка: Вы не настроены для записи отчёта")
         return
 
     row_number = user_to_row[user_name]
     worksheet = sheet.worksheet("Март")
     header = worksheet.row_values(1)
-    statistics = "Статистика:\n"
+    statistics = "📊 Статистика:\n"
     report_data = {}
-    
+
     for category in user_to_categories.get(user_name, []):
         if category in header:
             col = header.index(category) + 1
             value = worksheet.cell(row_number, col).value or "0"
             statistics += f"{category}: {value}\n"
             report_data[category] = int(value) if value.isdigit() else 0
-    
+
     chart_image = generate_report_chart(report_data)
     await message.answer(statistics)
     await bot.send_photo(message.chat.id, chart_image)
 
 # Запуск бота
 async def main():
-    logging.info("✅ Запуск бота...")
-    await dp.start_polling()
+    await start_scheduler()
+await dp.start_polling(bot)
 
 if name == "__main__":
-    try:
-        logging.info("Запуск main loop...")
-scheduler.start()
-        asyncio.run(main())
-    except Exception as e:
-        logging.error(f"Ошибка при запуске бота: {e}")
+    asyncio.run(main())
+    
