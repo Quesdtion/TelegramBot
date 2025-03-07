@@ -9,7 +9,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 
 # Ваш токен бота Telegram
-API_TOKEN = 'YOUR_API_TOKEN'
+API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
