@@ -56,7 +56,7 @@ def create_keyboard():
     keyboard.add(KeyboardButton("Просмотр статистики"))
     return keyboard
 
-# Напоминания
+# Настраиваем планировщик
 scheduler = AsyncIOScheduler()
 
 async def send_reminder():
@@ -67,9 +67,6 @@ async def send_reminder():
         logging.error(f"Ошибка при отправке напоминания: {e}")
 
 scheduler.add_job(send_reminder, 'cron', hour=18, minute=30, day_of_week='mon-fri')
-
-# Запускаем планировщик в фоне
-asyncio.create_task(scheduler.start())
 
 # Генерация графика
 def generate_report_chart(data):
@@ -124,7 +121,10 @@ async def show_statistics(message: Message):
 
 # Запуск бота
 async def main():
+    # Запускаем планировщик внутри работающего event loop
+    scheduler.start()
     await dp.start_polling()
 
 if name == "__main__":
     asyncio.run(main())
+    
