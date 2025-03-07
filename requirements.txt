@@ -1,7 +1,6 @@
 aiogram==2.21.0
 gspread==5.7.1
-matplotlib==3.5.1
+matplotlib==3.7.1
 apscheduler==3.8.1
 google-auth==2.3.0
-numpy<2
-matplotlib>=3.7.1
+
