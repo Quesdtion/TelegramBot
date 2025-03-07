@@ -1,14 +1,10 @@
-import re
 import logging
+import re
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ParseMode
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
-from aiogram.utils import executor
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
 
-# Ваш токен бота Telegram
+# Токен вашего бота
 API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
 
 # Настройка логирования
@@ -19,85 +15,78 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 dp.middleware.setup(LoggingMiddleware())
 
-# Подключение к Google Sheets с использованием учетных данных
-def connect_to_google_sheets(credentials_file):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, scope)
-    client = gspread.authorize(creds)
-    return client
+def check_report_format(report):
+    # Обновленное регулярное выражение для соответствия отчету
+    pattern = r"""
+    Актив:\s*(\d+)\n
+    Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\n
+    Кол-во\s*вбросов:\s*(\d+)\n
+    Кол-во\s*предложек:\s*(\d+)\n
+    Кол-во\s*согласий:\s*(\d+)\n
+    Кол-во\s*отказов:\s*(\d+)\n
+    Кол-во\s*Обраток:\s*(\d+)\n
+    Кол-во\s*лидов:\s*(\d+)\n
+    Кол-во\s*депов:\s*(\d+)
+    """
+    # Проверка с использованием многострочного шаблона
+    match = re.match(pattern, report, re.VERBOSE)
+    if match:
+        return True
+    return False
 
-# Функция для извлечения данных из отчета
 def extract_data_from_report(report):
     report_data = {}
-    lines = report.split('\n')
-    for line in lines:
-        match = re.match(r"([А-Яа-я\s]+):\s*(\d+\s*-\s*\d+|\d+)", line)
-        if match:
-            key = match.group(1).strip()
-            value = match.group(2)
-            if '-' in value:
-                value = value.split(' - ')  # Разделяем значения по " - "
-            report_data[key] = value
+    
+    # Обновленное регулярное выражение для извлечения данных
+    pattern = r"""
+    Актив:\s*(\d+)\n
+    Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\n
+    Кол-во\s*вбросов:\s*(\d+)\n
+    Кол-во\s*предложек:\s*(\d+)\n
+    Кол-во\s*согласий:\s*(\d+)\n
+    Кол-во\s*отказов:\s*(\d+)\n
+    Кол-во\s*Обраток:\s*(\d+)\n
+    Кол-во\s*лидов:\s*(\d+)\n
+    Кол-во\s*депов:\s*(\d+)
+    """
+    
+    # Ищем совпадение с шаблоном
+    match = re.match(pattern, report, re.VERBOSE)
+    if match:
+        # Сохраняем данные в словарь
+        report_data = {
+            'Актив': match.group(1),
+            'Новых номеров': f"{match.group(2)} - {match.group(3)}",
+            'Кол-во вбросов': match.group(4),
+            'Кол-во предложек': match.group(5),
+            'Кол-во согласий': match.group(6),
+            'Кол-во отказов': match.group(7),
+            'Кол-во Обраток': match.group(8),
+            'Кол-во лидов': match.group(9),
+            'Кол-во депов': match.group(10),
+        }
+    
     return report_data
 
-# Функция для записи данных в Google Sheets
-def write_data_to_sheet(client, sheet_name, data, current_date):
-    sheet = client.open("Название вашего документа").worksheet(sheet_name)
-
-    # Найдем строку для текущей даты
-    date_cell = sheet.find(current_date)
-
-    if date_cell:
-        start_row = date_cell.row  # Получаем номер строки для текущей даты
-
-        # Сопоставление извлеченных данных с ячейками в таблице
-        cell_mapping = {
-            'Актив': 'A',
-            'Новых номеров': 'B',
-            'Кол-во вбросов': 'C',
-            'Кол-во предложек': 'D',
-            'Кол-во согласий': 'E',
-            'Кол-во отказов': 'F',
-            'Кол-во Обраток': 'G',
-            'Кол-во лидов': 'H',
-            'Кол-во депов': 'I',
-        }
-
-        # Записываем данные в таблицу, начиная с строки для текущей даты
-        for i, (key, value) in enumerate(data.items()):
-            if key in cell_mapping:
-                column = cell_mapping[key]
-                cell = f"{column}{start_row + i}"
-                if isinstance(value, list):
-                    sheet.update(cell, f"{value[0]} - {value[1]}")
-                else:
-                    sheet.update(cell, value)
-
-# Обработчик сообщений
-@dp.message_handler(content_types=types.ContentType.TEXT)
-async def handle_report(message: types.Message):
-    # Пример отчета, который бот должен обработать
+async def process_report(message: types.Message):
     report = message.text
 
-    # Проверим, содержит ли сообщение отчет
-    if re.match(r".*Актив:.*Новых номеров:.*Кол-во вбросов:.*", report):  # Паттерн для простого отчета
-        # Получаем текущую дату
-        current_date = datetime.now().strftime("%d.%m")
-        
-        # Подключаемся к Google Sheets
-        client = connect_to_google_sheets('path_to_your_credentials_file.json')
-
-        # Извлекаем данные из отчета
+    # Проверяем, подходит ли отчет
+    if check_report_format(report):
+        # Если отчет принят, извлекаем данные
         extracted_data = extract_data_from_report(report)
-
-        # Записываем данные в таблицу на лист "март" для текущей даты
-        write_data_to_sheet(client, "март", extracted_data, current_date)
-
-        # Отправляем подтверждение пользователю
-        await message.reply("Отчет успешно принят и записан в таблицу.")
+        # Отправляем извлеченные данные в ответ пользователю
+        await message.answer(f"Отчет принят! Вот извлеченные данные:\n{extracted_data}", parse_mode=ParseMode.MARKDOWN)
     else:
-        # Если это не отчет, отправляем пользователю сообщение
-        await message.reply("Это не отчет. Пожалуйста, отправьте правильный отчет.")
+        # Если формат отчета некорректный
+        await message.answer("Это не отчет. Пожалуйста, отправьте правильный отчет.")
+
+# Хэндлер для текстовых сообщений
+@dp.message_handler(content_types=types.ContentType.TEXT)
+async def handle_message(message: types.Message):
+    # Вызовем функцию для обработки отчета
+    await process_report(message)
 
 if __name__ == '__main__':
+    from aiogram import executor
     executor.start_polling(dp, skip_updates=True)
