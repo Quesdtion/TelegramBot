@@ -18,14 +18,14 @@ dp.middleware.setup(LoggingMiddleware())
 def check_report_format(report):
     # Обновленное регулярное выражение для соответствия отчету
     pattern = r"""
-    Актив:\s*(\d+)\n
-    Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\n
-    Кол-во\s*вбросов:\s*(\d+)\n
-    Кол-во\s*предложек:\s*(\d+)\n
-    Кол-во\s*согласий:\s*(\d+)\n
-    Кол-во\s*отказов:\s*(\d+)\n
-    Кол-во\s*Обраток:\s*(\d+)\n
-    Кол-во\s*лидов:\s*(\d+)\n
+    Актив:\s*(\d+)\s*\n
+    Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\s*\n
+    Кол-во\s*вбросов:\s*(\d+)\s*\n
+    Кол-во\s*предложек:\s*(\d+)\s*\n
+    Кол-во\s*согласий:\s*(\d+)\s*\n
+    Кол-во\s*отказов:\s*(\d+)\s*\n
+    Кол-во\s*Обраток:\s*(\d+)\s*\n
+    Кол-во\s*лидов:\s*(\d+)\s*\n
     Кол-во\s*депов:\s*(\d+)
     """
     # Проверка с использованием многострочного шаблона
@@ -36,17 +36,21 @@ def check_report_format(report):
 
 def extract_data_from_report(report):
     report_data = {}
-    
+
+    # Убираем лишние пробелы и символы из текста отчета
+    report = re.sub(r'\s+', ' ', report)  # Заменяем все множественные пробелы на один
+    report = re.sub(r'\n+', ' ', report)  # Заменяем все новые строки на пробелы
+
     # Обновленное регулярное выражение для извлечения данных
     pattern = r"""
-    Актив:\s*(\d+)\n
-    Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\n
-    Кол-во\s*вбросов:\s*(\d+)\n
-    Кол-во\s*предложек:\s*(\d+)\n
-    Кол-во\s*согласий:\s*(\d+)\n
-    Кол-во\s*отказов:\s*(\d+)\n
-    Кол-во\s*Обраток:\s*(\d+)\n
-    Кол-во\s*лидов:\s*(\d+)\n
+    Актив:\s*(\d+)\s*
+    Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\s*
+    Кол-во\s*вбросов:\s*(\d+)\s*
+    Кол-во\s*предложек:\s*(\d+)\s*
+    Кол-во\s*согласий:\s*(\d+)\s*
+    Кол-во\s*отказов:\s*(\d+)\s*
+    Кол-во\s*Обраток:\s*(\d+)\s*
+    Кол-во\s*лидов:\s*(\d+)\s*
     Кол-во\s*депов:\s*(\d+)
     """
     
@@ -68,24 +72,26 @@ def extract_data_from_report(report):
     
     return report_data
 
-async def process_report(message: types.Message):
-    report = message.text
+@dp.message_handler(commands=['start', 'help'])
+async def send_welcome(message: types.Message):
+    await message.reply("Привет! Отправьте отчет, и я помогу вам с ним.")
+
+@dp.message_handler(content_types=['text'])
+async def handle_report(message: types.Message):
+    report = message.text.strip()
 
     # Проверяем, подходит ли отчет
     if check_report_format(report):
-        # Если отчет принят, извлекаем данные
         extracted_data = extract_data_from_report(report)
-        # Отправляем извлеченные данные в ответ пользователю
-        await message.answer(f"Отчет принят! Вот извлеченные данные:\n{extracted_data}", parse_mode=ParseMode.MARKDOWN)
+        response = "Отчет принят!\nИзвлеченные данные:\n"
+        
+        # Формируем ответ с извлеченными данными
+        for key, value in extracted_data.items():
+            response += f"{key}: {value}\n"
+        
+        await message.reply(response)
     else:
-        # Если формат отчета некорректный
-        await message.answer("Это не отчет. Пожалуйста, отправьте правильный отчет.")
-
-# Хэндлер для текстовых сообщений
-@dp.message_handler(content_types=types.ContentType.TEXT)
-async def handle_message(message: types.Message):
-    # Вызовем функцию для обработки отчета
-    await process_report(message)
+        await message.reply("Это не отчет. Пожалуйста, отправьте правильный отчет.")
 
 if __name__ == '__main__':
     from aiogram import executor
