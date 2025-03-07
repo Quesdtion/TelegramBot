@@ -107,18 +107,20 @@ async def handle_report(message: Message):
 
 @dp.message_handler(lambda message: message.text == "Просмотр статистики")
 async def show_statistics(message: Message):
-    user_name = message.from_user.username
-    if user_name not in user_to_row:
-        await message.reply("Ошибка: Вы не настроены для записи отчёта ❌")
-        return
-row_number = user_to_row[user_name]
-    worksheet = sheet.worksheet("Март")  # Месяц для анализа
-    header = worksheet.row_values(1)
-    
-    # Статистика по дням, неделям, месяцам
-    statistics = "Статистика:\n"
-    report_data = {}
+    user_name = message.from_user.username  # Исправлено ser_name -> user_name
 
+if user_name not in user_to_row:
+    await message.reply("Ошибка: Вы не настроены для записи отчёта ❌")
+    return
+
+row_number = user_to_row[user_name]  # Убрали лишний отступ
+
+worksheet = sheet.worksheet("Март")  # Месяц для анализа
+header = worksheet.row_values(1)
+
+# Статистика по дням, неделям, месяцам
+statistics = "Статистика:\n"
+report_data = {}
     for category in user_to_categories.get(user_name, []):
         col = header.index(category) + 1
         value = worksheet.cell(row_number, col).value
