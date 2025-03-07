@@ -2,4 +2,4 @@ aiogram==2.21.0
 gspread
 oauth2client
 apscheduler
-
+matplotlib
