@@ -41,8 +41,6 @@ except Exception as e:
 # Инициализация бота и диспетчера
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
-router = Router()
-dp.include_router(router)
 
 # Словари пользователей и категорий
 user_to_row = {'question': 2}  # Пример
@@ -83,15 +81,15 @@ def generate_report_chart(data):
     return buf
 
 # Обработчики команд
-@router.message(Command("start"))
+@dp.message(Command("start"))
 async def cmd_start(message: Message):
     await message.answer("👋 Добро пожаловать! Используйте кнопки ниже.", reply_markup=create_keyboard())
 
-@router.message(lambda message: message.text == "Отправить отчет")
+@dp.message(lambda message: message.text == "Отправить отчет")
 async def handle_report(message: Message):
     await message.answer("📄 Отправьте отчет в формате:\n\nНОМЕРА: 10\nПЕРЕВОДЫ: 5")
 
-@router.message(lambda message: message.text == "Просмотр статистики")
+@dp.message(lambda message: message.text == "Просмотр статистики")
 async def show_statistics(message: Message):
     user_name = message.from_user.username
 
@@ -119,8 +117,7 @@ async def show_statistics(message: Message):
 # Запуск бота
 async def main():
     await start_scheduler()
-await dp.start_polling(bot)
+    await dp.start_polling(bot)
 
-if name == "__main__":
+if __name__ == "__main__":
     asyncio.run(main())
-    
