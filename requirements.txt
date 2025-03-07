@@ -1,14 +1,8 @@
-aiogram
-gspread
-google-auth
-python-dotenv
-python-telegram-bot
-oauth2client
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
-aiogram
-gspread
-matplotlib
-apscheduler
+aiogram==2.24
+gspread==5.4.0
+apscheduler==3.8.1
+matplotlib==3.5.0
+google-auth==2.8.0
+google-auth-oauthlib==0.4.6
+google-auth-httplib2==0.1.0
 
