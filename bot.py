@@ -1,11 +1,14 @@
 import logging
 import re
+import openai
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import ParseMode
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.types import ParseMode
+from aiogram import executor
 
-# Токен вашего бота
+# Токен вашего бота и OpenAI API
 API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
+OPENAI_API_KEY = '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'
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -14,6 +17,9 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 dp.middleware.setup(LoggingMiddleware())
+
+# Устанавливаем API ключ OpenAI
+openai.api_key = OPENAI_API_KEY
 
 def check_report_format(report):
     # Обновленное регулярное выражение для соответствия отчету
@@ -72,6 +78,17 @@ def extract_data_from_report(report):
     
     return report_data
 
+async def chat_with_ai(message_text):
+    # Функция для общения с OpenAI
+    response = openai.Completion.create(
+        engine="text-davinci-003",  # Можно также использовать "gpt-3.5-turbo" или другие модели
+        prompt=message_text,
+        max_tokens=150,
+        temperature=0.7
+    )
+    ai_reply = response.choices[0].text.strip()
+    return ai_reply
+
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
     await message.reply("Привет! Отправьте отчет, и я помогу вам с ним.")
@@ -91,8 +108,9 @@ async def handle_report(message: types.Message):
         
         await message.reply(response)
     else:
-        await message.reply("Это не отчет. Пожалуйста, отправьте правильный отчет.")
+        # Если это не отчет, передаем сообщение в ИИ для ответа
+        ai_response = await chat_with_ai(report)
+        await message.reply(ai_response)
 
 if __name__ == '__main__':
-    from aiogram import executor
     executor.start_polling(dp, skip_updates=True)
