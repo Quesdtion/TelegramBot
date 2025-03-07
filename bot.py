@@ -39,7 +39,7 @@ except Exception as e:
 # Подключаем Telegram-бота
 try:
     bot = Bot(token=TOKEN)
-    dp = Dispatcher(bot)  # Используем обычный Dispatcher для версии 2.x
+    dp = Dispatcher.from_bot(bot)  # Используем from_bot для aiogram 3.x
     logging.info("✅ Бот успешно запущен!")
 except Exception as e:
     logging.error(f"Ошибка при запуске бота: {e}")
@@ -115,10 +115,11 @@ async def main():
     logging.info("✅ Запуск бота...")
     await dp.start_polling()
 
-if __name__ == "__main__":  # Исправили на __name__
+if __name__ == "__main__":
     try:
         logging.info("Запуск main loop...")
         scheduler.start()
         asyncio.run(main())
     except Exception as e:
         logging.error(f"Ошибка при запуске бота: {e}")
+
