@@ -1,129 +1,103 @@
-import os
-import json
-import gspread
+import re
 import logging
-import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from google.oauth2.service_account import Credentials
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import matplotlib.pyplot as plt
-import io
+from aiogram.types import ParseMode
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.utils import executor
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime
 
-# Настраиваем логирование
+# Ваш токен бота Telegram
+API_TOKEN = 'YOUR_API_TOKEN'
+
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-# Загружаем переменные окружения
-TOKEN = os.getenv("BOT_TOKEN", "").strip()
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "").strip()
-credentials_json = os.getenv("CREDENTIALS_JSON", "").strip()
+# Инициализация бота и диспетчера
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
 
-# Проверяем, загружены ли переменные
-if not TOKEN or not SPREADSHEET_ID or not credentials_json:
-    raise ValueError("Ошибка: отсутствуют необходимые переменные окружения!")
-
-logging.info("✅ Переменные окружения загружены")
-
-# Подключаемся к Google Sheets API
-try:
-    credentials_dict = json.loads(credentials_json)
+# Подключение к Google Sheets с использованием учетных данных
+def connect_to_google_sheets(credentials_file):
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, scope)
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID)
-    logging.info("✅ Подключение к Google Sheets успешно!")
-except Exception as e:
-    logging.error(f"Ошибка при подключении к Google Sheets: {e}")
-    raise
+    return client
 
-# Подключаем Telegram-бота
-try:
-    bot = Bot(token=TOKEN)
-    dp = Dispatcher(bot=bot)
-    logging.info("✅ Бот успешно запущен!")
-except Exception as e:
-    logging.error(f"Ошибка при запуске бота: {e}")
-    raise
-
-# Словари пользователей и категорий
-user_to_row = {'question': 2}  # Пример
-user_to_categories = {'question': ["НОМЕРА", "ПЕРЕВОДЫ", "ДИАЛОГИ", "ВБРОС"]}
-
-# Клавиатуры
-def create_keyboard():
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton("Отправить отчет"))
-    keyboard.add(KeyboardButton("Просмотр статистики"))
-    return keyboard
-
-# Настраиваем планировщик
-scheduler = AsyncIOScheduler()
-
-async def send_reminder():
-    chat_id = 123456789  # Укажи реальный chat_id или загрузи его из БД
-    try:
-        await bot.send_message(chat_id, "Не забывайте отправить отчет! 📝")
-    except Exception as e:
-        logging.error(f"Ошибка при отправке напоминания: {e}")
-
-scheduler.add_job(send_reminder, 'cron', hour=18, minute=30, day_of_week='mon-fri')
-
-# Генерация графика
-def generate_report_chart(data):
-    categories = list(data.keys())
-    values = list(data.values())
-
-    fig, ax = plt.subplots()
-    ax.bar(categories, values)
-    ax.set_xlabel("Категории")
-    ax.set_ylabel("Значения")
-    ax.set_title("Статистика по отчетам")
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-    
-    return buf
-
-# Обработчики команд
-@dp.message_handler(commands=['start'])
-async def cmd_start(message: Message):
-    await message.answer("Добро пожаловать! Используйте кнопки ниже.", reply_markup=create_keyboard())
-
-@dp.message_handler(lambda message: message.text == "Отправить отчет")
-async def handle_report(message: Message):
-    await message.answer("Отправьте отчет в формате: \nНОМЕРА: 10\nПЕРЕВОДЫ: 5")
-
-@dp.message_handler(lambda message: message.text == "Просмотр статистики")
-async def show_statistics(message: Message):
-    user_name = message.from_user.username
-
-    if user_name not in user_to_row:
-        await message.reply("Ошибка: Вы не настроены для записи отчёта ❌")
-        return
-
-    row_number = user_to_row[user_name]
-    worksheet = sheet.worksheet("Март")
-    header = worksheet.row_values(1)
-    statistics = "Статистика:\n"
+# Функция для извлечения данных из отчета
+def extract_data_from_report(report):
     report_data = {}
+    lines = report.split('\n')
+    for line in lines:
+        match = re.match(r"([А-Яа-я\s]+):\s*(\d+\s*-\s*\d+|\d+)", line)
+        if match:
+            key = match.group(1).strip()
+            value = match.group(2)
+            if '-' in value:
+                value = value.split(' - ')  # Разделяем значения по " - "
+            report_data[key] = value
+    return report_data
 
-    for category in user_to_categories.get(user_name, []):
-        if category in header:
-            col = header.index(category) + 1
-            value = worksheet.cell(row_number, col).value or "0"
-            statistics += f"{category}: {value}\n"
-            report_data[category] = int(value) if value.isdigit() else 0
+# Функция для записи данных в Google Sheets
+def write_data_to_sheet(client, sheet_name, data, current_date):
+    sheet = client.open("Название вашего документа").worksheet(sheet_name)
 
-    chart_image = generate_report_chart(report_data)
-    await message.answer(statistics)
-    await bot.send_photo(message.chat.id, chart_image)
+    # Найдем строку для текущей даты
+    date_cell = sheet.find(current_date)
 
-# Запуск бота
-async def main():
-    # Запускаем планировщик внутри работающего event loop
-    scheduler.start()
-    await dp.start_polling()
+    if date_cell:
+        start_row = date_cell.row  # Получаем номер строки для текущей даты
 
-if __name__ == "__main__":
-    asyncio.run(main())
+        # Сопоставление извлеченных данных с ячейками в таблице
+        cell_mapping = {
+            'Актив': 'A',
+            'Новых номеров': 'B',
+            'Кол-во вбросов': 'C',
+            'Кол-во предложек': 'D',
+            'Кол-во согласий': 'E',
+            'Кол-во отказов': 'F',
+            'Кол-во Обраток': 'G',
+            'Кол-во лидов': 'H',
+            'Кол-во депов': 'I',
+        }
+
+        # Записываем данные в таблицу, начиная с строки для текущей даты
+        for i, (key, value) in enumerate(data.items()):
+            if key in cell_mapping:
+                column = cell_mapping[key]
+                cell = f"{column}{start_row + i}"
+                if isinstance(value, list):
+                    sheet.update(cell, f"{value[0]} - {value[1]}")
+                else:
+                    sheet.update(cell, value)
+
+# Обработчик сообщений
+@dp.message_handler(content_types=types.ContentType.TEXT)
+async def handle_report(message: types.Message):
+    # Пример отчета, который бот должен обработать
+    report = message.text
+
+    # Проверим, содержит ли сообщение отчет
+    if re.match(r".*Актив:.*Новых номеров:.*Кол-во вбросов:.*", report):  # Паттерн для простого отчета
+        # Получаем текущую дату
+        current_date = datetime.now().strftime("%d.%m")
+        
+        # Подключаемся к Google Sheets
+        client = connect_to_google_sheets('path_to_your_credentials_file.json')
+
+        # Извлекаем данные из отчета
+        extracted_data = extract_data_from_report(report)
+
+        # Записываем данные в таблицу на лист "март" для текущей даты
+        write_data_to_sheet(client, "март", extracted_data, current_date)
+
+        # Отправляем подтверждение пользователю
+        await message.reply("Отчет успешно принят и записан в таблицу.")
+    else:
+        # Если это не отчет, отправляем пользователю сообщение
+        await message.reply("Это не отчет. Пожалуйста, отправьте правильный отчет.")
+
+if __name__ == '__main__':
+    executor.start_polling(dp, skip_updates=True)
