@@ -5,10 +5,10 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
 
 # Установите ваш API ключ для OpenAI
-openai.api_key = "your_openai_api_key"
+openai.api_key = "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"
 
 # Инициализация бота
-API_TOKEN = 'your_telegram_bot_token'
+API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
