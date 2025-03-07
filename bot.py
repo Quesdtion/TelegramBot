@@ -4,8 +4,12 @@ import gspread
 import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from google.oauth2.service_account import Credentials
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+import io
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
@@ -32,15 +36,7 @@ try:
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
     client = gspread.authorize(creds)
-
-    # Проверяем, можем ли открыть таблицу
-    try:
-        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-        logging.info("Таблица успешно открыта!")
-    except Exception as e:
-        logging.error(f"Не удалось открыть таблицу: {e}")
-        raise
-
+    sheet = client.open_by_key(SPREADSHEET_ID)
     logging.info("✅ Подключение к Google Sheets успешно!")
 except Exception as e:
     logging.error(f"Ошибка при подключении к Google Sheets: {e}")
@@ -49,49 +45,95 @@ except Exception as e:
 # Подключаем Telegram-бота
 try:
     bot = Bot(token=TOKEN)
-    dp = Dispatcher()
+    dp = Dispatcher(bot)
     logging.info("✅ Бот успешно запущен!")
 except Exception as e:
     logging.error(f"Ошибка при запуске бота: {e}")
     raise
 
+# Словарь для сопоставления пользователей с их строками на листе
+user_to_row = {
+    'question': 2,  # Например, отправитель 'question' будет использовать строку 2
+    # Добавьте сюда остальных пользователей и строки
+}
+
+# Словарь для допустимых категорий отчётов для каждого менеджера
+user_to_categories = {
+    'question': ["НОМЕРА", "ПЕРЕВОДЫ", "ДИАЛОГИ", "ВБРОС", "ПРЕДЛОГА", "СОГЛАС", "ОТКАЗ", "ОТКАЗ ОБРАТКА", "ЛИДЫ", "ДЕПЫ"],
+    # Добавьте сюда допустимые категории для других менеджеров
+}
+
+# Клавиатуры для удобства
+def create_keyboard():
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton("Отправить отчет"))
+    keyboard.add(KeyboardButton("Просмотр статистики"))
+    return keyboard
+
+# Напоминания
+scheduler = AsyncIOScheduler()
+
+async def send_reminder():
+    await bot.send_message(chat_id=YOUR_CHAT_ID, text="Не забывайте отправить отчет! 📝")
+
+scheduler.add_job(send_reminder, 'cron', hour=18, minute=30, day_of_week='mon-fri')
+scheduler.start()
+
+# Функция для генерации графика
+def generate_report_chart(data):
+    categories = list(data.keys())
+    values = list(data.values())
+
+    fig, ax = plt.subplots()
+    ax.bar(categories, values)
+    ax.set_xlabel("Категории")
+    ax.set_ylabel("Значения")
+    ax.set_title("Статистика по отчетам")
+    
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    return buf
+
+# Обработчик команд
+@dp.message_handler(commands=['start'])
+async def cmd_start(message: Message):
+    await message.answer("Добро пожаловать! Я помогу вам с отчетами.\nИспользуйте кнопки ниже для действий.", reply_markup=create_keyboard())
+
 # Обработчик сообщений с отчётами
-@dp.message()
-async def handle_message(message: Message):
-    text = message.text
-    lines = text.split("\n")
+@dp.message_handler(lambda message: message.text == "Отправить отчет")
+async def handle_report(message: Message):
+    await message.answer("Отправьте ваш отчет в формате:\nНОМЕРА: 10\nПЕРЕВОДЫ: 5\nДИАЛОГИ: 7 ...", reply_markup=create_keyboard())
+
+@dp.message_handler(lambda message: message.text == "Просмотр статистики")
+async def show_statistics(message: Message):
+    user_name = message.from_user.username
+    if user_name not in user_to_row:
+        await message.reply("Ошибка: Вы не настроены для записи отчёта ❌")
+        return
+row_number = user_to_row[user_name]
+    worksheet = sheet.worksheet("Март")  # Месяц для анализа
+    header = worksheet.row_values(1)
+    
+    # Статистика по дням, неделям, месяцам
+    statistics = "Статистика:\n"
     report_data = {}
 
-    for line in lines:
-        parts = line.split(":")
-        if len(parts) == 2:
-            key, value = parts[0].strip(), parts[1].strip()
-            report_data[key] = value
+    for category in user_to_categories.get(user_name, []):
+        col = header.index(category) + 1
+        value = worksheet.cell(row_number, col).value
+        statistics += f"{category}: {value}\n"
+        report_data[category] = int(value) if value.isdigit() else 0
 
-    if "Актив" in report_data:
-        row = [message.from_user.full_name, report_data.get("Актив", ""), report_data.get("Новых номеров", "")]
-        
-        # Логируем данные перед записью
-        logging.info(f"Записываю данные в таблицу: {row}")
-        
-        try:
-            # Попробуем записать данные в таблицу
-            result = sheet.append_row(row)
-            logging.info(f"Данные успешно записаны: {result}")
-        except Exception as e:
-            # Логируем ошибку записи
-            logging.error(f"Ошибка при записи в таблицу: {e}")
-            await message.reply(f"Ошибка при записи данных: {e}")
-        else:
-            # Отправляем успешный ответ
-            await message.reply("Отчёт записан ✅")
-    else:
-        await message.reply("Ошибка в формате отчёта ❌")
+    # Генерация графика
+    chart_image = generate_report_chart(report_data)
+
+    await message.answer(statistics)
+    await bot.send_photo(message.chat.id, chart_image)
 
 # Запуск бота
 async def main():
     await dp.start_polling(bot)
 
-if __name__ == "__main__":
+if name == "__main__":
     asyncio.run(main())
-
