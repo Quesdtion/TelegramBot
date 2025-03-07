@@ -121,7 +121,10 @@ header = worksheet.row_values(1)
 # Статистика по дням, неделям, месяцам
 statistics = "Статистика:\n"
 report_data = {}
-    for category in user_to_categories.get(user_name, []):
+
+for category in user_to_categories.get(user_name, []):  # Убедились, что отступ правильный
+    statistics += f"- {category}: {report_data.get(category, 'Нет данных')}\n"
+
         col = header.index(category) + 1
         value = worksheet.cell(row_number, col).value
         statistics += f"{category}: {value}\n"
