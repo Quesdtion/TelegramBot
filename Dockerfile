@@ -7,8 +7,10 @@ WORKDIR /app
 # Копируем все файлы в контейнер
 COPY . /app/
 
-# Устанавливаем зависимости
+# Обновляем pip и устанавливаем зависимости
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Запускаем бота
 CMD ["python", "bot.py"]
+
