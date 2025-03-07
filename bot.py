@@ -6,10 +6,10 @@ from aiogram.types import ParseMode
 from aiogram.utils import executor
 
 # Установите ваш API ключ для OpenAI
-openai.api_key = "your_openai_api_key"
+openai.api_key = "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"
 
 # Инициализация бота
-API_TOKEN = 'your_telegram_bot_token'
+API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
