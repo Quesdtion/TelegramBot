@@ -17,8 +17,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем Python-зависимости
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
+
 
 # Копируем все файлы проекта в рабочую директорию
 COPY . .
