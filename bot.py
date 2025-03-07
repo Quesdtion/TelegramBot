@@ -3,7 +3,7 @@ import json
 import gspread
 import logging
 import asyncio
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, Router
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -37,13 +37,10 @@ except Exception as e:
     raise
 
 # Подключаем Telegram-бота
-try:
-    bot = Bot(token=TOKEN)
-    dp = Dispatcher(bot=bot)
-    logging.info("✅ Бот успешно запущен!")
-except Exception as e:
-    logging.error(f"Ошибка при запуске бота: {e}")
-    raise
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+router = Router()
+dp.include_router(router)
 
 # Словари пользователей и категорий
 user_to_row = {'question': 2}  # Пример
@@ -60,7 +57,7 @@ def create_keyboard():
 scheduler = AsyncIOScheduler()
 
 async def send_reminder():
-    chat_id = 123456789  # Укажи реальный chat_id или загрузи его из БД
+    chat_id = 123456789  # Укажи реальный chat_id или загрузи его из базы
     try:
         await bot.send_message(chat_id, "Не забывайте отправить отчет! 📝")
     except Exception as e:
@@ -70,6 +67,9 @@ scheduler.add_job(send_reminder, 'cron', hour=18, minute=30, day_of_week='mon-fr
 
 # Генерация графика
 def generate_report_chart(data):
+    if not data:
+        return None  # Если данных нет, не создаём график
+
     categories = list(data.keys())
     values = list(data.values())
 
@@ -86,15 +86,15 @@ def generate_report_chart(data):
     return buf
 
 # Обработчики команд
-@dp.message_handler(commands=['start'])
+@router.message(commands=['start'])
 async def cmd_start(message: Message):
     await message.answer("Добро пожаловать! Используйте кнопки ниже.", reply_markup=create_keyboard())
 
-@dp.message_handler(lambda message: message.text == "Отправить отчет")
+@router.message(lambda message: message.text == "Отправить отчет")
 async def handle_report(message: Message):
     await message.answer("Отправьте отчет в формате: \nНОМЕРА: 10\nПЕРЕВОДЫ: 5")
 
-@dp.message_handler(lambda message: message.text == "Просмотр статистики")
+@router.message(lambda message: message.text == "Просмотр статистики")
 async def show_statistics(message: Message):
     user_name = message.from_user.username
 
@@ -105,7 +105,7 @@ async def show_statistics(message: Message):
     row_number = user_to_row[user_name]
     worksheet = sheet.worksheet("Март")
     header = worksheet.row_values(1)
-    statistics = "Статистика:\n"
+    statistics = "📊 Статистика:\n"
     report_data = {}
 
     for category in user_to_categories.get(user_name, []):
@@ -115,16 +115,19 @@ async def show_statistics(message: Message):
             statistics += f"{category}: {value}\n"
             report_data[category] = int(value) if value.isdigit() else 0
 
-    chart_image = generate_report_chart(report_data)
     await message.answer(statistics)
-    await bot.send_photo(message.chat.id, chart_image)
+
+    chart_image = generate_report_chart(report_data)
+    if chart_image:
+        await bot.send_photo(message.chat.id, chart_image)
+    else:
+        await message.answer("Нет данных для построения графика.")
 
 # Запуск бота
 async def main():
-    # Запускаем планировщик внутри работающего event loop
     scheduler.start()
-    await dp.start_polling()
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
 
 if name == "__main__":
     asyncio.run(main())
-    
