@@ -1,24 +1,27 @@
-import logging
 import openai
 import re
 from aiogram import Bot, Dispatcher, types
+from aiogram.types import ParseMode
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.utils import executor
+import logging
 
-# Установите ваш API ключ для OpenAI
+# Ваш API-ключ OpenAI
 openai.api_key = "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"
 
-# Инициализация бота
-API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
+# Создаём объект бота и диспетчера
+API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'  # Замените на ваш токен
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
 
 # Функция для общения с ИИ
 async def chat_with_ai(report):
     try:
         # Новый API-метод для общения с ChatGPT
-        response = openai.ChatCompletion.create(
+        response = openai.completions.create(
             model="gpt-3.5-turbo",  # или другой доступный модель
-            messages=[
+            messages=[ 
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": report},
             ],
@@ -27,11 +30,10 @@ async def chat_with_ai(report):
 
     except Exception as e:
         print(f"Ошибка при взаимодействии с AI: {e}")
-        return f"Произошла ошибка при взаимодействии с ИИ: {e}"
+        return "Произошла ошибка при взаимодействии с ИИ."
 
-# Функция для проверки формата отчета
+# Регулярное выражение для отчета
 def check_report_format(report):
-    # Обновленное регулярное выражение для соответствия отчету
     pattern = r"""
     Актив:\s*(\d+)\n
     Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\n
@@ -43,17 +45,14 @@ def check_report_format(report):
     Кол-во\s*лидов:\s*(\d+)\n
     Кол-во\s*депов:\s*(\d+)
     """
-    # Проверка с использованием многострочного шаблона
     match = re.match(pattern, report, re.VERBOSE)
     if match:
         return True
     return False
 
-# Функция для извлечения данных из отчета
+# Извлечение данных из отчета
 def extract_data_from_report(report):
     report_data = {}
-
-    # Обновленное регулярное выражение для извлечения данных
     pattern = r"""
     Актив:\s*(\d+)\n
     Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\n
@@ -66,10 +65,8 @@ def extract_data_from_report(report):
     Кол-во\s*депов:\s*(\d+)
     """
     
-    # Ищем совпадение с шаблоном
     match = re.match(pattern, report, re.VERBOSE)
     if match:
-        # Сохраняем данные в словарь
         report_data = {
             'Актив': match.group(1),
             'Новых номеров': f"{match.group(2)} - {match.group(3)}",
@@ -84,34 +81,35 @@ def extract_data_from_report(report):
     
     return report_data
 
-# Обработчик сообщений
-@dp.message_handler(commands=['start'])
+# Хэндлер для получения сообщений
+@dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    await message.reply("Привет! Отправьте отчет, и я помогу его обработать.")
+    await message.reply("Привет! Отправь мне отчет, и я помогу обработать его или передам ИИ для ответа.")
 
+# Хэндлер для обработки отчетов
 @dp.message_handler()
 async def handle_report(message: types.Message):
     report = message.text.strip()
-    print(f"Получен отчет: {report}")  # Логирование полученного отчета
 
-    # Проверяем, соответствует ли сообщение отчету
     if check_report_format(report):
-        await message.reply("Отчет принят! Обрабатываю...")
-
-        # Извлекаем данные из отчета
+        # Если это отчет, извлекаем данные
         extracted_data = extract_data_from_report(report)
-        print(f"Извлеченные данные: {extracted_data}")  # Логируем извлеченные данные
+        response = "Данные из отчета:\n"
+        for key, value in extracted_data.items():
+            response += f"{key}: {value}\n"
+        await message.reply(response)
 
-        # Отправляем отчет в OpenAI для анализа
+        # Дополнительный ответ от ИИ
         ai_response = await chat_with_ai(report)
-        print(f"Ответ от ИИ: {ai_response}")  # Логируем ответ от ИИ
-
-        # Отправляем ответ от ИИ
-        await message.reply(f"Ответ ИИ:\n{ai_response}")
-
+        await message.reply(f"Ответ от ИИ:\n{ai_response}")
     else:
+        # Если это не отчет
         await message.reply("Это не отчет. Пожалуйста, отправьте правильный отчет.")
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+
+# Запуск бота
 if __name__ == '__main__':
     from aiogram import executor
     executor.start_polling(dp, skip_updates=True)
