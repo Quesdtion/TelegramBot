@@ -6,6 +6,9 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from google.oauth2.service_account import Credentials
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import matplotlib.pyplot as plt
+import io
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +39,7 @@ except Exception as e:
 # Подключаем Telegram-бота
 try:
     bot = Bot(token=TOKEN)
-    dp = Dispatcher(bot)
+    dp = Dispatcher()
     logging.info("✅ Бот успешно запущен!")
 except Exception as e:
     logging.error(f"Ошибка при запуске бота: {e}")
@@ -53,11 +56,15 @@ def create_keyboard():
     keyboard.add(KeyboardButton("Просмотр статистики"))
     return keyboard
 
+# Напоминания
+scheduler = AsyncIOScheduler()
+async def send_reminder():
+    await bot.send_message(chat_id=123456789, text="Не забывайте отправить отчет! 📝")  # Укажите свой chat_id
+scheduler.add_job(send_reminder, 'cron', hour=18, minute=30, day_of_week='mon-fri')
+scheduler.start()
+
 # Генерация графика
 def generate_report_chart(data):
-    import matplotlib.pyplot as plt
-    import io
-    
     categories = list(data.keys())
     values = list(data.values())
     fig, ax = plt.subplots()
@@ -106,7 +113,7 @@ async def show_statistics(message: Message):
 
 # Запуск бота
 async def main():
-    await dp.start_polling()
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
