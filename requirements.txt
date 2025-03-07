@@ -11,3 +11,4 @@ aiogram
 gspread
 matplotlib
 apscheduler
+aiogram>=3.0.0
