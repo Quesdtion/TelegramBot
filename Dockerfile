@@ -18,8 +18,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY . /app
 WORKDIR /app
 
-# Обновляем pip и устанавливаем зависимости
-RUN --mount=type=cache,id=pip-cache,target=/root/.cache/pip pip install --upgrade pip \
+# Обновляем pip и устанавливаем зависимости с использованием кэша
+RUN --mount=type=cache,id=pip-cache-${BUILD_ID},target=/root/.cache/pip pip install --upgrade pip \
     && pip install -r requirements.txt
 
 # Запускаем приложение
