@@ -5,3 +5,4 @@ apscheduler
 matplotlib
 openai
 pyTelegramBotAPI
+GitPython
