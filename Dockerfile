@@ -19,7 +19,7 @@ COPY . /app
 WORKDIR /app
 
 # Обновляем pip и устанавливаем зависимости
-RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip \
+RUN --mount=type=cache,id=pip-cache,target=/root/.cache/pip pip install --upgrade pip \
     && pip install -r requirements.txt
 
 # Запускаем приложение
