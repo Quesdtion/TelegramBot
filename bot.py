@@ -2,14 +2,13 @@ import logging
 import openai
 import re
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import ParseMode
 from aiogram.utils import executor
 
 # Установите ваш API ключ для OpenAI
-openai.api_key = "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"
+openai.api_key = "your_openai_api_key"
 
 # Инициализация бота
-API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
+API_TOKEN = 'your_telegram_bot_token'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
@@ -28,7 +27,7 @@ async def chat_with_ai(report):
 
     except Exception as e:
         print(f"Ошибка при взаимодействии с AI: {e}")
-        return "Произошла ошибка при взаимодействии с ИИ."
+        return f"Произошла ошибка при взаимодействии с ИИ: {e}"
 
 # Функция для проверки формата отчета
 def check_report_format(report):
@@ -93,6 +92,7 @@ async def send_welcome(message: types.Message):
 @dp.message_handler()
 async def handle_report(message: types.Message):
     report = message.text.strip()
+    print(f"Получен отчет: {report}")  # Логирование полученного отчета
 
     # Проверяем, соответствует ли сообщение отчету
     if check_report_format(report):
@@ -100,10 +100,11 @@ async def handle_report(message: types.Message):
 
         # Извлекаем данные из отчета
         extracted_data = extract_data_from_report(report)
-        print(extracted_data)
+        print(f"Извлеченные данные: {extracted_data}")  # Логируем извлеченные данные
 
         # Отправляем отчет в OpenAI для анализа
         ai_response = await chat_with_ai(report)
+        print(f"Ответ от ИИ: {ai_response}")  # Логируем ответ от ИИ
 
         # Отправляем ответ от ИИ
         await message.reply(f"Ответ ИИ:\n{ai_response}")
