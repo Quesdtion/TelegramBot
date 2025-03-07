@@ -20,7 +20,7 @@ WORKDIR /app
 
 # Обновляем pip и устанавливаем зависимости с использованием кэша
 RUN --mount=type=cache,id=pip-cache-${BUILD_ID},target=/root/.cache/pip pip install --upgrade pip \
-    && pip install -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt
 
 # Запускаем приложение
 CMD ["python", "main.py"]
