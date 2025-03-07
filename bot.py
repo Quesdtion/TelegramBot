@@ -121,5 +121,6 @@ async def main():
     await start_scheduler()
     await dp.start_polling(bot)
 
+# Запуск основного цикла
 if name == "__main__":
     asyncio.run(main())
