@@ -39,7 +39,7 @@ except Exception as e:
 # Подключаем Telegram-бота
 try:
     bot = Bot(token=TOKEN)
-    dp = Dispatcher()
+    dp = Dispatcher(bot=bot)
     logging.info("✅ Бот успешно запущен!")
 except Exception as e:
     logging.error(f"Ошибка при запуске бота: {e}")
@@ -58,23 +58,34 @@ def create_keyboard():
 
 # Напоминания
 scheduler = AsyncIOScheduler()
+
 async def send_reminder():
-    await bot.send_message(chat_id=123456789, text="Не забывайте отправить отчет! 📝")  # Укажите свой chat_id
+    chat_id = 123456789  # Укажи реальный chat_id или загрузи его из БД
+    try:
+        await bot.send_message(chat_id, "Не забывайте отправить отчет! 📝")
+    except Exception as e:
+        logging.error(f"Ошибка при отправке напоминания: {e}")
+
 scheduler.add_job(send_reminder, 'cron', hour=18, minute=30, day_of_week='mon-fri')
-scheduler.start()
+
+# Запускаем планировщик в фоне
+asyncio.create_task(scheduler.start())
 
 # Генерация графика
 def generate_report_chart(data):
     categories = list(data.keys())
     values = list(data.values())
+
     fig, ax = plt.subplots()
     ax.bar(categories, values)
     ax.set_xlabel("Категории")
     ax.set_ylabel("Значения")
     ax.set_title("Статистика по отчетам")
+
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
+    
     return buf
 
 # Обработчики команд
@@ -89,7 +100,7 @@ async def handle_report(message: Message):
 @dp.message_handler(lambda message: message.text == "Просмотр статистики")
 async def show_statistics(message: Message):
     user_name = message.from_user.username
-    
+
     if user_name not in user_to_row:
         await message.reply("Ошибка: Вы не настроены для записи отчёта ❌")
         return
@@ -99,21 +110,21 @@ async def show_statistics(message: Message):
     header = worksheet.row_values(1)
     statistics = "Статистика:\n"
     report_data = {}
-    
+
     for category in user_to_categories.get(user_name, []):
         if category in header:
             col = header.index(category) + 1
             value = worksheet.cell(row_number, col).value or "0"
             statistics += f"{category}: {value}\n"
             report_data[category] = int(value) if value.isdigit() else 0
-    
+
     chart_image = generate_report_chart(report_data)
     await message.answer(statistics)
     await bot.send_photo(message.chat.id, chart_image)
 
 # Запуск бота
 async def main():
-    await dp.start_polling(bot)
+    await dp.start_polling()
 
-if __name__ == "__main__":
+if name == "__main__":
     asyncio.run(main())
