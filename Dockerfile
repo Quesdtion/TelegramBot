@@ -12,5 +12,6 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Запускаем бота
+RUN apt-get update && apt-get install -y git
 CMD ["python", "bot.py"]
 
