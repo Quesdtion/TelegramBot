@@ -6,3 +6,4 @@ matplotlib
 openai
 pyTelegramBotAPI
 GitPython
+PyGithub
