@@ -7,3 +7,4 @@ openai
 pyTelegramBotAPI
 GitPython
 PyGithub
+python-dotenv
