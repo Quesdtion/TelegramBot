@@ -1,69 +1,69 @@
-import os
 import openai
-import telebot
-import git
-from github import Github
-from datetime import datetime
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import ParseMode
+from aiogram.utils import executor
+import re
 
-# Вставьте ваш API ключ OpenAI и Telegram
-openai.api_key = "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"  # Ваш OpenAI API ключ
-API_TOKEN = "7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI"  # Ваш Telegram Bot API токен
-GITHUB_TOKEN = "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"  # Ваш GitHub Token, который вы получите на GitHub
-REPO_NAME = "Quesdtion/TelegramBot"  # Название вашего репозитория на GitHub, например "username/repository_name"
-COMMIT_MESSAGE = "Automated code generation commit"
+# Вставьте ваш API ключ OpenAI
+openai.api_key = "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"
 
-bot = telebot.TeleBot(API_TOKEN)
+# Вставьте ваш ключ Telegram бота
+API_TOKEN = '7671376837:AAGgp6Vyz2o-IcviYljQz409QQZq-3V5ztI'
 
-# Функция для генерации кода через OpenAI
-def generate_code(prompt):
+# Инициализация бота и диспетчера
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
+
+# Функция для проверки, является ли сообщение отчетом
+def check_report_format(report):
+    pattern = r"""
+    Актив:\s*(\d+)\n
+    Новых\s*номеров:\s*(\d+)\s*-\s*(\d+)\n
+    Кол-во\s*вбросов:\s*(\d+)\n
+    Кол-во\s*предложек:\s*(\d+)\n
+    Кол-во\s*согласий:\s*(\d+)\n
+    Кол-во\s*отказов:\s*(\d+)\n
+    Кол-во\s*Обраток:\s*(\d+)\n
+    Кол-во\s*лидов:\s*(\d+)\n
+    Кол-во\s*депов:\s*(\d+)
+    """
+    match = re.match(pattern, report, re.VERBOSE)
+    return match is not None
+
+# Функция для общения с AI
+async def chat_with_ai(message_text):
     try:
-        response = openai.Completion.create(
-            model="gpt-3.5-turbo",
-            prompt=prompt,
-            max_tokens=500
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # или другой доступный модель
+            messages=[ 
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": message_text},
+            ],
         )
-        return response.choices[0].text.strip()
+        return response['choices'][0]['message']['content']
     except Exception as e:
-        print(f"Ошибка при взаимодействии с OpenAI: {e}")
-        return "Произошла ошибка при генерации кода."
+        print(f"Ошибка при взаимодействии с AI: {e}")
+        return "Произошла ошибка при взаимодействии с ИИ."
 
-# Функция для коммита кода в GitHub
-def commit_to_github(code):
-    try:
-        # Инициализация GitHub API
-        g = Github(GITHUB_TOKEN)
-        repo = g.get_repo(REPO_NAME)
+# Обработка команд
+@dp.message_handler(commands=['start'])
+async def send_welcome(message: types.Message):
+    await message.reply("Привет! Я бот, готов к работе!")
 
-        # Создание нового файла с сгенерированным кодом
-        file_name = f"generated_code_{datetime.now().strftime('%Y%m%d%H%M%S')}.py"
-        with open(file_name, "w") as file:
-            file.write(code)
+# Обработка всех текстовых сообщений
+@dp.message_handler()
+async def handle_message(message: types.Message):
+    user_message = message.text.strip()
 
-        # Коммит и push в GitHub
-        repo.create_file(file_name, COMMIT_MESSAGE, code, branch="main")
-        print(f"Файл {file_name} успешно закоммичен в репозиторий {REPO_NAME}.")
-    except Exception as e:
-        print(f"Ошибка при коммите в GitHub: {e}")
+    # Проверяем, является ли сообщение отчетом
+    if check_report_format(user_message):
+        ai_response = await chat_with_ai(user_message)
+        await message.reply(f"Ответ на отчет от ИИ:\n{ai_response}")
+    else:
+        # Бот общается с пользователем, если это не отчет
+        ai_response = await chat_with_ai(user_message)
+        await message.reply(f"Ответ от ИИ:\n{ai_response}")
 
-# Обработчик команд в Telegram
-@bot.message_handler(commands=['generate_code'])
-def handle_generate_code(message):
-    bot.send_message(message.chat.id, "Отправьте описание для генерации кода.")
-
-# Обработчик обычных сообщений (генерация кода)
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    prompt = message.text
-    bot.send_message(message.chat.id, "Генерация кода... Пожалуйста, подождите.")
-    
-    # Генерация кода с помощью OpenAI
-    code = generate_code(prompt)
-    
-    # Отправка сгенерированного кода пользователю
-    bot.send_message(message.chat.id, f"Сгенерированный код:\n```python\n{code}\n```", parse_mode="Markdown")
-    
-    # Автоматический коммит кода в GitHub
-    commit_to_github(code)
-
-# Запуск бота
-bot.polling()
+if __name__ == "__main__":
+    from aiogram import executor
+    executor.start_polling(dp, skip_updates=True)
